@@ -71,6 +71,7 @@ export function RoomScreen() {
     typeof window !== "undefined" ? `${window.location.origin}/?sala=${room.id}` : room.id;
 
   async function share() {
+    if (!room) return;
     const text = `Entra na minha mesa: ${room.id}`;
     if (navigator.share) {
       await navigator.share({ title: "Mesa", text, url: shareUrl }).catch(() => undefined);
@@ -80,6 +81,7 @@ export function RoomScreen() {
   }
 
   function move(name: string, dir: -1 | 1) {
+    if (!room) return;
     const order = [...room.players].sort((a, b) => a.seat - b.seat).map((p) => p.name);
     const i = order.indexOf(name);
     const j = i + dir;
@@ -98,6 +100,7 @@ export function RoomScreen() {
 
   function onDrop(e: React.DragEvent, target: string) {
     e.preventDefault();
+    if (!room) return;
     const source = e.dataTransfer.getData("text/plain");
     if (!source || source === target) return;
     const order = [...room.players].sort((a, b) => a.seat - b.seat).map((p) => p.name);
