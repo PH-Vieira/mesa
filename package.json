@@ -1,0 +1,18 @@
+{
+  "name": "mesa",
+  "private": true,
+  "workspaces": [
+    "apps/api",
+    "apps/web",
+    "packages/shared"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c green,cyan \"npm run dev -w @mesa/api\" \"npm run dev -w @mesa/web\"",
+    "build": "npm run build -w @mesa/shared && npm run build -w @mesa/api && npm run build -w @mesa/web",
+    "dev:api": "npm run dev -w @mesa/api",
+    "dev:web": "npm run dev -w @mesa/web"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
