@@ -24,6 +24,10 @@ export class NameIndex {
     this.keys.add(NameIndex.key(name));
   }
 
+  remove(name: string): void {
+    this.keys.delete(NameIndex.key(name));
+  }
+
   size(): number {
     return this.keys.size;
   }

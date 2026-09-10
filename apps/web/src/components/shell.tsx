@@ -27,8 +27,8 @@ export function Shell() {
 
   if (bootstrapping) {
     return (
-      <div className="felt-bg grid min-h-dvh place-items-center text-gold-soft">
-        Abrindo a mesa…
+      <div className="felt-bg grid min-h-dvh place-items-center">
+        <span className="loading loading-spinner loading-lg text-primary" />
       </div>
     );
   }
@@ -40,23 +40,27 @@ export function Shell() {
       {screen === "room" && <RoomScreen />}
 
       {lostSignal && (
-        <div className="fixed inset-x-0 top-0 z-50 bg-[#c23b3b] px-4 py-2.5 text-center text-sm font-semibold text-white">
-          {conn === "offline"
-            ? "Sem internet. Reconectamos assim que a rede voltar."
-            : "Sem sinal da sala. Tentando reconectar…"}
+        <div role="alert" className="alert alert-error fixed inset-x-0 top-0 z-50 rounded-none">
+          <span>
+            {conn === "offline"
+              ? "Sem internet. Reconectamos assim que a rede voltar."
+              : "Sem sinal da sala. Tentando reconectar…"}
+          </span>
         </div>
       )}
 
-      <div className="pointer-events-none fixed inset-x-0 bottom-20 z-50 mx-auto flex max-w-md flex-col gap-2 px-4">
+      <div className="toast toast-center toast-bottom z-50 mb-16 sm:mb-8">
         {toasts.map((t) => (
           <button
             key={t.id}
-            className={`pointer-events-auto rounded-2xl px-4 py-3 text-left text-sm text-white shadow-lg ${
-              t.level === "error" ? "bg-[#c23b3b]" : t.level === "warn" ? "bg-amber-600" : "bg-felt-rim"
+            type="button"
+            role="alert"
+            className={`alert shadow-lg ${
+              t.level === "error" ? "alert-error" : t.level === "warn" ? "alert-warning" : "alert-info"
             }`}
             onClick={() => dismissToast(t.id)}
           >
-            {t.message}
+            <span>{t.message}</span>
           </button>
         ))}
       </div>

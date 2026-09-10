@@ -1,6 +1,9 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import websocket from "@fastify/websocket";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import {
   NAME_RE,
@@ -42,9 +45,29 @@ import {
   lookupRoomForJoin,
   toRoomState,
 } from "./game.js";
+import {
+  deleteAdminUser,
+  listAdminUsers,
+  renameAdminUser,
+  setAdminChips,
+} from "./admin.js";
+import { directClientIp, isPrivateOrTailscaleIp } from "./adminNet.js";
 import { log } from "./log.js";
 
 const app = Fastify({ logger: false });
+// Admin DELETE sem body não pode falhar por Content-Type: application/json.
+app.addContentTypeParser("application/json", { parseAs: "string" }, (req, body, done) => {
+  if (!body || body.length === 0) {
+    done(null, {});
+    return;
+  }
+  try {
+    done(null, JSON.parse(body as string));
+  } catch (err) {
+    done(err as Error, undefined);
+  }
+});
+const adminHtml = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "admin.html"), "utf8");
 const corsOrigins = config.corsOrigin.split(",").map((s) => s.trim()).filter(Boolean);
 
 function isAllowedOrigin(origin: string) {
@@ -103,6 +126,64 @@ async function authUser(req: { headers: { authorization?: string | string[] }; u
 }
 
 app.get("/health", async () => ({ ok: true }));
+
+function assertAdminNet(req: Parameters<typeof directClientIp>[0], reply: { code: (n: number) => { send: (b: unknown) => unknown } }) {
+  const ip = directClientIp(req);
+  if (!isPrivateOrTailscaleIp(ip)) {
+    log.warn("admin", `bloqueado IP público ${ip}`);
+    return { ok: false as const, ip, response: reply.code(403).send({ error: "Admin só na rede local ou Tailscale." }) };
+  }
+  return { ok: true as const, ip };
+}
+
+app.get("/admin", async (req, reply) => {
+  const gate = assertAdminNet(req, reply);
+  if (!gate.ok) return gate.response;
+  reply.type("text/html; charset=utf-8");
+  return adminHtml;
+});
+
+app.get("/admin/api/users", async (req, reply) => {
+  const gate = assertAdminNet(req, reply);
+  if (!gate.ok) return gate.response;
+  return { users: listAdminUsers(), clientIp: gate.ip };
+});
+
+app.patch("/admin/api/users/:id", async (req, reply) => {
+  const gate = assertAdminNet(req, reply);
+  if (!gate.ok) return gate.response;
+  const id = Number((req.params as { id: string }).id);
+  if (!Number.isInteger(id) || id < 1) return reply.code(400).send({ error: "ID inválido." });
+  const body = z
+    .object({
+      chips: z.number().int().optional(),
+      name: z.string().optional(),
+    })
+    .safeParse(req.body);
+  if (!body.success) return reply.code(400).send({ error: "Dados inválidos." });
+  if (body.data.chips === undefined && body.data.name === undefined) {
+    return reply.code(400).send({ error: "Nada para alterar." });
+  }
+  if (body.data.name !== undefined) {
+    const err = renameAdminUser(id, body.data.name, names);
+    if (err) return reply.code(400).send({ error: err });
+  }
+  if (body.data.chips !== undefined) {
+    const err = setAdminChips(id, body.data.chips);
+    if (err) return reply.code(400).send({ error: err });
+  }
+  return { ok: true, user: listAdminUsers().find((u) => u.id === id) };
+});
+
+app.delete("/admin/api/users/:id", async (req, reply) => {
+  const gate = assertAdminNet(req, reply);
+  if (!gate.ok) return gate.response;
+  const id = Number((req.params as { id: string }).id);
+  if (!Number.isInteger(id) || id < 1) return reply.code(400).send({ error: "ID inválido." });
+  const err = deleteAdminUser(id, names);
+  if (err) return reply.code(400).send({ error: err });
+  return { ok: true };
+});
 
 app.post("/auth/register", async (req, reply) => {
   const ip = clientIp(req.headers as Record<string, string | string[] | undefined>);

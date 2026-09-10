@@ -77,124 +77,170 @@ export function HomeScreen() {
   }
 
   return (
-    <div className="felt-bg min-h-dvh px-4 pb-10 pt-6">
-      <header className="mx-auto flex max-w-md items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs uppercase tracking-[0.22em] text-gold/70">Mesa</p>
-          <h1 className="truncate font-display text-3xl text-gold-soft">{user?.name}</h1>
-        </div>
-        <Button variant="ghost" className="min-h-10 shrink-0 px-3 py-2 text-xs" onClick={logout}>
-          Sair da conta
-        </Button>
-      </header>
-
-      <section className="mx-auto mt-6 max-w-md rounded-[28px] border border-white/10 bg-black/20 p-5">
-        <div className="flex items-center gap-4">
-          <div className="chip-stack shrink-0 scale-90" />
-          <div>
-            <p className="text-xs uppercase tracking-widest text-white/40">Suas fichas</p>
-            <p className="font-display text-4xl text-gold">{chips}</p>
+    <div className="felt-bg min-h-dvh px-4 pb-10 pt-4 sm:px-8 sm:pb-14 sm:pt-8">
+      <div className="mx-auto w-full max-w-md lg:max-w-5xl">
+        <div className="navbar rounded-box bg-base-200/50 px-2 backdrop-blur-sm sm:px-4">
+          <div className="navbar-start min-w-0">
+            <div className="min-w-0 px-2">
+              <p className="text-xs uppercase tracking-[0.22em] text-primary/70">Mesa</p>
+              <h1 className="truncate font-display text-2xl font-bold sm:text-3xl">{user?.name}</h1>
+            </div>
+          </div>
+          <div className="navbar-end">
+            <Button variant="ghost" className="btn-sm sm:btn-md" onClick={logout}>
+              Sair da conta
+            </Button>
           </div>
         </div>
-        <div className="mt-5 grid grid-cols-2 gap-3">
-          <Button onClick={() => setJoinOpen(true)} variant="felt">
-            Entrar na sala
-          </Button>
-          <Button onClick={() => setCreateOpen(true)}>Iniciar como dealer</Button>
-        </div>
-        <p className="mt-4 text-center text-xs text-white/35">
-          No celular: menu do navegador → Adicionar à tela inicial
-        </p>
-      </section>
 
-      <section className="mx-auto mt-6 max-w-md space-y-3">
-        <h2 className="text-sm uppercase tracking-[0.18em] text-white/40">Buscar jogadores</h2>
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Digite ao menos 3 caracteres"
-          onKeyUp={() => undefined}
-        />
-        {searching && <p className="text-xs text-white/40">Buscando…</p>}
-        <div className="space-y-2">
-          {results.map((r) => (
-            <div key={r.name} className="flex items-center justify-between rounded-2xl bg-black/20 px-4 py-3">
-              <div>
-                <p className="font-semibold text-gold-soft">{r.name}</p>
-                <p className="text-xs text-white/40">
-                  {r.relation === "friends"
-                    ? "Amigo"
-                    : r.relation === "outgoing"
-                      ? "Pedido enviado"
-                      : r.relation === "incoming"
-                        ? "Quer ser seu amigo"
-                        : "Jogador"}
+        <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:items-start lg:gap-8">
+          <div className="space-y-6">
+            <div className="stats stats-vertical bg-base-200/70 border-base-300 w-full border shadow-lg backdrop-blur-sm sm:stats-horizontal">
+              <div className="stat">
+                <div className="stat-figure">
+                  <div className="chip-stack scale-75 sm:scale-90" />
+                </div>
+                <div className="stat-title">Suas fichas</div>
+                <div className="stat-value text-primary">{chips}</div>
+                <div className="stat-desc">Saldo da conta</div>
+              </div>
+            </div>
+
+            <div className="card bg-base-200/60 card-border shadow-md">
+              <div className="card-body gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Button onClick={() => setJoinOpen(true)} variant="secondary" className="btn-block">
+                    Entrar na sala
+                  </Button>
+                  <Button onClick={() => setCreateOpen(true)} className="btn-block">
+                    Iniciar como dealer
+                  </Button>
+                </div>
+                <p className="text-center text-xs text-base-content/45 sm:text-left">
+                  No celular: menu do navegador → Adicionar à tela inicial
                 </p>
               </div>
-              {r.relation === "none" && (
-                <Button
-                  variant="ghost"
-                  className="min-h-10 px-3 py-2 text-xs"
-                  onClick={() => {
-                    api.friendRequest(r.name)
-                      .then(() => setResults((list) => list.map((x) => x.name === r.name ? { ...x, relation: "outgoing" } : x)))
-                      .catch(() => undefined);
-                  }}
-                >
-                  Adicionar
-                </Button>
+            </div>
+
+            <section className="space-y-3">
+              <h2 className="text-sm uppercase tracking-[0.18em] text-base-content/45">Buscar jogadores</h2>
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Digite ao menos 3 caracteres"
+              />
+              {searching && (
+                <p className="flex items-center gap-2 text-xs text-base-content/50">
+                  <span className="loading loading-dots loading-xs" /> Buscando…
+                </p>
               )}
+              <ul className="list bg-base-200/40 rounded-box">
+                {results.map((r) => (
+                  <li key={r.name} className="list-row items-center">
+                    <div>
+                      <div className="font-semibold">{r.name}</div>
+                      <div className="text-xs text-base-content/45">
+                        {r.relation === "friends"
+                          ? "Amigo"
+                          : r.relation === "outgoing"
+                            ? "Pedido enviado"
+                            : r.relation === "incoming"
+                              ? "Quer ser seu amigo"
+                              : "Jogador"}
+                      </div>
+                    </div>
+                    {r.relation === "none" && (
+                      <Button
+                        variant="ghost"
+                        className="btn-sm"
+                        onClick={() => {
+                          api
+                            .friendRequest(r.name)
+                            .then(() =>
+                              setResults((list) =>
+                                list.map((x) => (x.name === r.name ? { ...x, relation: "outgoing" } : x)),
+                              ),
+                            )
+                            .catch(() => undefined);
+                        }}
+                      >
+                        Adicionar
+                      </Button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>
+
+          <div className="space-y-4">
+            <div className="card bg-base-200/50 card-border">
+              <div className="card-body gap-3">
+                <h2 className="card-title text-base">Pedidos de amizade</h2>
+                {incoming.length === 0 && <p className="text-sm text-base-content/45">Nenhum pedido no momento.</p>}
+                <ul className="list">
+                  {incoming.map((r) => (
+                    <li key={r.id} className="list-row items-center">
+                      <div className="font-semibold">{r.name}</div>
+                      <div className="join">
+                        <Button className="btn-sm join-item" onClick={() => api.friendRespond(r.id, true)}>
+                          Aceitar
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          className="btn-sm join-item"
+                          onClick={() => api.friendRespond(r.id, false)}
+                        >
+                          Recusar
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
-          ))}
+
+            <div className="card bg-base-200/50 card-border">
+              <div className="card-body gap-3">
+                <h2 className="card-title text-base">Convites de jogo</h2>
+                {invites.length === 0 && <p className="text-sm text-base-content/45">Nenhum convite agora.</p>}
+                <ul className="list">
+                  {invites.map((n) => (
+                    <li key={n.id} className="list-row items-center">
+                      <div>
+                        <div className="font-semibold">{n.fromName}</div>
+                        <div className="text-xs text-base-content/45">Sala {n.roomId}</div>
+                      </div>
+                      {n.roomId && (
+                        <Button className="btn-sm" onClick={() => joinRoom(n.roomId!)}>
+                          Entrar
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <div className="card bg-base-200/50 card-border">
+              <div className="card-body gap-3">
+                <h2 className="card-title text-base">Amigos</h2>
+                {friends.length === 0 && (
+                  <p className="text-sm text-base-content/45">Você ainda não adicionou ninguém.</p>
+                )}
+                <ul className="list">
+                  {friends.map((f) => (
+                    <li key={f.name} className="list-row items-center">
+                      <div className="font-semibold">{f.name}</div>
+                      <div className="badge badge-soft badge-primary">{f.chips} fichas</div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
         </div>
-      </section>
-
-      <section className="mx-auto mt-8 max-w-md space-y-3">
-        <h2 className="text-sm uppercase tracking-[0.18em] text-white/40">Pedidos de amizade</h2>
-        {incoming.length === 0 && <p className="text-sm text-white/35">Nenhum pedido no momento.</p>}
-        {incoming.map((r) => (
-          <div key={r.id} className="flex items-center justify-between rounded-2xl bg-black/20 px-4 py-3">
-            <p className="font-semibold text-gold-soft">{r.name}</p>
-            <div className="flex gap-2">
-              <Button className="min-h-10 px-3 py-2 text-xs" onClick={() => api.friendRespond(r.id, true)}>
-                Aceitar
-              </Button>
-              <Button variant="ghost" className="min-h-10 px-3 py-2 text-xs" onClick={() => api.friendRespond(r.id, false)}>
-                Recusar
-              </Button>
-            </div>
-          </div>
-        ))}
-      </section>
-
-      <section className="mx-auto mt-8 max-w-md space-y-3">
-        <h2 className="text-sm uppercase tracking-[0.18em] text-white/40">Convites de jogo</h2>
-        {invites.length === 0 && <p className="text-sm text-white/35">Nenhum convite agora.</p>}
-        {invites.map((n) => (
-          <div key={n.id} className="flex items-center justify-between rounded-2xl bg-black/20 px-4 py-3">
-            <div>
-              <p className="font-semibold text-gold-soft">{n.fromName}</p>
-              <p className="text-xs text-white/40">Sala {n.roomId}</p>
-            </div>
-            {n.roomId && (
-              <Button className="min-h-10 px-3 py-2 text-xs" onClick={() => joinRoom(n.roomId!)}>
-                Entrar
-              </Button>
-            )}
-          </div>
-        ))}
-      </section>
-
-      <section className="mx-auto mt-8 max-w-md space-y-3">
-        <h2 className="text-sm uppercase tracking-[0.18em] text-white/40">Amigos</h2>
-        {friends.length === 0 && <p className="text-sm text-white/35">Você ainda não adicionou ninguém.</p>}
-        {friends.map((f) => (
-          <div key={f.name} className="flex items-center justify-between rounded-2xl bg-black/20 px-4 py-3">
-            <p className="font-semibold text-gold-soft">{f.name}</p>
-            <p className="text-sm text-gold/80">{f.chips} fichas</p>
-          </div>
-        ))}
-      </section>
+      </div>
 
       <Sheet open={joinOpen} title="Entrar na sala" onClose={() => setJoinOpen(false)}>
         <div className="space-y-3">
@@ -215,8 +261,12 @@ export function HomeScreen() {
               max={chips}
             />
           </Field>
-          {error && <p className="text-sm text-red-300">{error}</p>}
-          <Button className="w-full" disabled={busy} onClick={() => joinRoom(roomId)}>
+          {error && (
+            <div role="alert" className="alert alert-error alert-soft text-sm">
+              <span>{error}</span>
+            </div>
+          )}
+          <Button className="btn-block" disabled={busy} onClick={() => joinRoom(roomId)}>
             {busy ? "Aguarde…" : "Encontrar sala"}
           </Button>
         </div>
@@ -230,11 +280,15 @@ export function HomeScreen() {
           <Field label="Aposta máxima">
             <Input type="number" value={maxBet} onChange={(e) => setMaxBet(Number(e.target.value))} />
           </Field>
-          <p className="text-sm leading-relaxed text-white/50">
+          <p className="text-sm text-base-content/60">
             Você conduz a mesa: não senta, não aposta e não precisa de buy-in.
           </p>
-          {error && <p className="text-sm text-red-300">{error}</p>}
-          <Button className="w-full" disabled={busy} onClick={createRoom}>
+          {error && (
+            <div role="alert" className="alert alert-error alert-soft text-sm">
+              <span>{error}</span>
+            </div>
+          )}
+          <Button className="btn-block" disabled={busy} onClick={createRoom}>
             {busy ? "Aguarde…" : "Abrir mesa"}
           </Button>
         </div>

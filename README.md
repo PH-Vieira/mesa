@@ -11,8 +11,13 @@ npm run dev
 
 - Front: http://localhost:3000
 - API: http://localhost:3333
+- Admin (só LAN/Tailscale): http://localhost:3333/admin
 
 Cópias de ambiente: `apps/api/.env.example` e `apps/web/.env.example`.
+
+## Admin
+
+Painel sem login em `/admin`, restrito a IPs privados e Tailscale (`100.64.0.0/10`). Serve para ajustar fichas, renomear e apagar cadastros. Acesse pelo IP da LAN ou pelo IP Tailscale do servidor — não pela URL pública.
 
 ## Deploy
 

@@ -40,13 +40,13 @@ export function TurnAlert({ active }: { active: boolean }) {
   if (!show) return null;
   return (
     <button
-      className="fixed inset-0 z-50 grid place-items-center bg-gold/90 px-6"
+      className="fixed inset-0 z-50 grid place-items-center bg-primary/95 px-6"
       onClick={() => setShow(false)}
     >
       <div className="text-center">
-        <p className="text-xs uppercase tracking-[0.3em] text-felt-deep/70">Mesa</p>
-        <p className="font-display mt-2 text-6xl leading-none text-felt-deep">Sua vez</p>
-        <p className="mt-4 text-sm text-felt-deep/70">Toque para apostar</p>
+        <p className="text-xs uppercase tracking-[0.3em] text-primary-content/70">Mesa</p>
+        <p className="font-display mt-2 text-6xl leading-none text-primary-content">Sua vez</p>
+        <p className="mt-4 text-sm text-primary-content/70">Toque para apostar</p>
       </div>
     </button>
   );

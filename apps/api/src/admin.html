@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mesa · Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      font-family: Outfit, system-ui, sans-serif;
+      color: #f3e6c4;
+      background:
+        radial-gradient(1200px 600px at 50% -10%, rgba(224, 179, 74, 0.12), transparent 50%),
+        linear-gradient(180deg, #0d3b2e 0%, #061912 70%);
+    }
+    .wrap { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; }
+    h1 { font-family: Fraunces, Georgia, serif; font-size: 2rem; margin: 0; color: #e0b34a; }
+    .sub { color: rgba(255,255,255,.45); font-size: .85rem; margin-top: 6px; }
+    .bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin: 24px 0 16px; }
+    input[type="search"], input[type="text"], input[type="number"] {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,.1);
+      background: rgba(0,0,0,.25);
+      color: #f3e6c4;
+      border-radius: 14px;
+      padding: 12px 14px;
+      font: inherit;
+      outline: none;
+    }
+    input:focus { border-color: rgba(224,179,74,.6); }
+    .search { max-width: 280px; }
+    .grid { display: grid; gap: 12px; }
+    @media (min-width: 720px) { .grid { grid-template-columns: 1fr 1fr; } }
+    .card {
+      border: 1px solid rgba(255,255,255,.1);
+      background: rgba(0,0,0,.22);
+      border-radius: 22px;
+      padding: 16px;
+      display: grid;
+      gap: 10px;
+    }
+    .name { font-weight: 700; font-size: 1.15rem; color: #f3e6c4; }
+    .meta { font-size: .75rem; color: rgba(255,255,255,.4); }
+    label { font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: rgba(243,230,196,.7); display: block; margin-bottom: 4px; }
+    .row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
+    button {
+      border: 0;
+      border-radius: 14px;
+      padding: 10px 14px;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      min-height: 44px;
+    }
+    .gold { background: #e0b34a; color: #061912; }
+    .ghost { background: rgba(255,255,255,.06); color: #f3e6c4; border: 1px solid rgba(255,255,255,.1); }
+    .danger { background: #c23b3b; color: #fff; }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+    .toast {
+      position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+      background: #1d5c46; color: #fff; padding: 12px 18px; border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35); z-index: 20; max-width: 90vw;
+    }
+    .toast.err { background: #c23b3b; }
+    .empty { color: rgba(255,255,255,.4); padding: 24px 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Admin da Mesa</h1>
+      <p class="sub">Só rede local / Tailscale · sem login · <span id="ip"></span></p>
+    </header>
+    <div class="bar">
+      <input class="search" id="q" type="search" placeholder="Filtrar por nome…" />
+      <button class="ghost" id="refresh" type="button">Atualizar</button>
+    </div>
+    <div class="grid" id="list"></div>
+    <p class="empty" id="empty" hidden>Nenhum jogador.</p>
+  </div>
+  <div class="toast" id="toast" hidden></div>
+  <script>
+    const listEl = document.getElementById("list");
+    const emptyEl = document.getElementById("empty");
+    const qEl = document.getElementById("q");
+    const toastEl = document.getElementById("toast");
+    let users = [];
+    let toastTimer;
+
+    function toast(msg, err) {
+      toastEl.textContent = msg;
+      toastEl.className = "toast" + (err ? " err" : "");
+      toastEl.hidden = false;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toastEl.hidden = true; }, 3200);
+    }
+
+    async function api(path, init = {}) {
+      const headers = { ...(init.headers || {}) };
+      const hasBody = init.body != null && init.body !== "";
+      if (hasBody && !headers["Content-Type"]) {
+        headers["Content-Type"] = "application/json";
+      }
+      const res = await fetch(path, { ...init, headers });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || data.message || "Falha na requisição.");
+      return data;
+    }
+
+    function filtered() {
+      const q = qEl.value.trim().toLowerCase();
+      if (!q) return users;
+      return users.filter((u) => u.name.toLowerCase().includes(q));
+    }
+
+    function render() {
+      const rows = filtered();
+      listEl.innerHTML = "";
+      emptyEl.hidden = rows.length > 0;
+      for (const u of rows) {
+        const card = document.createElement("article");
+        card.className = "card";
+        card.innerHTML = `
+          <div>
+            <div class="name">${escapeHtml(u.name)}</div>
+            <div class="meta">#${u.id}${u.currentRoomId ? " · sala " + escapeHtml(u.currentRoomId) : ""} · desde ${escapeHtml(u.createdAt)}</div>
+          </div>
+          <div class="row">
+            <div>
+              <label>Nome</label>
+              <input type="text" data-name value="${escapeAttr(u.name)}" maxlength="12" />
+            </div>
+            <button class="ghost" data-save-name type="button">Salvar nome</button>
+          </div>
+          <div class="row">
+            <div>
+              <label>Fichas</label>
+              <input type="number" data-chips value="${u.chips}" min="0" step="1" />
+            </div>
+            <button class="gold" data-save-chips type="button">Salvar fichas</button>
+          </div>
+          <button class="danger" data-del type="button">Excluir cadastro</button>
+        `;
+        card.querySelector("[data-save-name]").onclick = async () => {
+          const name = card.querySelector("[data-name]").value.trim();
+          try {
+            await api(`/admin/api/users/${u.id}`, { method: "PATCH", body: JSON.stringify({ name }) });
+            toast("Nome atualizado.");
+            await load();
+          } catch (e) { toast(e.message, true); }
+        };
+        card.querySelector("[data-save-chips]").onclick = async () => {
+          const chips = Number(card.querySelector("[data-chips]").value);
+          try {
+            await api(`/admin/api/users/${u.id}`, { method: "PATCH", body: JSON.stringify({ chips }) });
+            toast("Fichas atualizadas.");
+            await load();
+          } catch (e) { toast(e.message, true); }
+        };
+        card.querySelector("[data-del]").onclick = async () => {
+          if (!confirm(`Apagar ${u.name}? Isso remove o cadastro.`)) return;
+          try {
+            await api(`/admin/api/users/${u.id}`, { method: "DELETE" });
+            toast("Cadastro removido.");
+            await load();
+          } catch (e) { toast(e.message, true); }
+        };
+        listEl.appendChild(card);
+      }
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]));
+    }
+    function escapeAttr(s) { return escapeHtml(s).replace(/`/g, "&#96;"); }
+
+    async function load() {
+      const data = await api("/admin/api/users");
+      users = data.users || [];
+      if (data.clientIp) document.getElementById("ip").textContent = "seu IP: " + data.clientIp;
+      render();
+    }
+
+    qEl.oninput = render;
+    document.getElementById("refresh").onclick = () => load().catch((e) => toast(e.message, true));
+    load().catch((e) => toast(e.message, true));
+  </script>
+</body>
+</html>

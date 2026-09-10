@@ -114,172 +114,178 @@ export function RoomScreen() {
   }
 
   return (
-    <div className="felt-bg min-h-dvh px-4 pb-40 pt-5">
+    <div className={`felt-bg min-h-dvh px-4 pt-5 md:px-8 md:pt-8 ${playing && (myTurn || !isDealer) ? "pb-40 md:pb-44" : "pb-10 md:pb-14"}`}>
       <TurnAlert active={myTurn} />
-      <header className="mx-auto flex max-w-md items-start justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-white/40">Sala</p>
-          <button
-            className="font-display text-3xl tracking-wide text-gold"
-            onClick={() => navigator.clipboard.writeText(room.id)}
-          >
-            {room.id}
-          </button>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <StatusPill status={room.status} />
-            <span className="text-xs text-white/40">Dealer {room.dealerName}</span>
-          </div>
-        </div>
-        <div className="flex gap-3">
-          {isDealer && (
-            <button className="text-sm text-gold/80" onClick={() => setMenuOpen(true)}>
-              Menu
+      <div className="mx-auto w-full max-w-md md:max-w-5xl">
+        <header className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-base-content/45">Sala</p>
+            <button
+              className="font-display text-3xl tracking-wide text-primary md:text-4xl md:hover:text-base-content"
+              onClick={() => navigator.clipboard.writeText(room.id)}
+            >
+              {room.id}
             </button>
-          )}
-          <button className="text-sm text-white/45" onClick={() => setLeaveOpen(true)}>
-            Sair
-          </button>
-        </div>
-      </header>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <StatusPill status={room.status} />
+              <span className="text-xs text-base-content/45">Dealer {room.dealerName}</span>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            {isDealer && (
+              <button className="text-sm text-primary/80 md:hover:text-primary" onClick={() => setMenuOpen(true)}>
+                Menu
+              </button>
+            )}
+            <button className="text-sm text-base-content/50 md:hover:text-base-content/70" onClick={() => setLeaveOpen(true)}>
+              Sair
+            </button>
+          </div>
+        </header>
 
-      <section className="mx-auto mt-5 max-w-md rounded-[28px] border border-white/10 bg-black/25 p-5 text-center">
-        <p className="text-xs uppercase tracking-widest text-white/40">Pote</p>
-        <p className="font-display text-5xl text-gold">{room.pot}</p>
-        <p className="mt-1 text-sm text-white/45">
-          Aposta atual {room.currentBet} · min {room.minBet} / máx {room.maxBet}
-        </p>
-        {lastBanner && (
-          <p className="mt-2 animate-pulse text-base font-semibold text-amber-200">{lastBanner}</p>
-        )}
-        {room.bettingOpen && turnPlayer && (
-          <p className="mt-2 text-lg font-semibold text-emerald-200">Vez de {turnPlayer.name}</p>
-        )}
-        {canAward && (
-          <p className="mt-2 text-sm text-gold">Toque nos vencedores e entregue o pote. Pode dividir.</p>
-        )}
-        {room.status === "on_hold" && (
-          <p className="mt-2 text-sm text-white/45">
-            {seatedCount < 2 ? `Aguardando jogadores (${seatedCount}/2)` : "Pronta para começar"}
-          </p>
-        )}
-      </section>
+        <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-start lg:gap-8">
+          <div className="space-y-4">
+            <section className="card bg-base-200/70 card-border p-5 text-center shadow-lg md:p-7">
+              <p className="text-xs uppercase tracking-widest text-base-content/45">Pote</p>
+              <p className="font-display text-5xl text-primary md:text-6xl">{room.pot}</p>
+              <p className="mt-1 text-sm text-base-content/50">
+                Aposta atual {room.currentBet} · min {room.minBet} / máx {room.maxBet}
+              </p>
+              {lastBanner && (
+                <p className="mt-2 animate-pulse text-base font-semibold text-amber-200">{lastBanner}</p>
+              )}
+              {room.bettingOpen && turnPlayer && (
+                <p className="mt-2 text-lg font-semibold text-emerald-200">Vez de {turnPlayer.name}</p>
+              )}
+              {canAward && (
+                <p className="mt-2 text-sm text-primary">Toque nos vencedores e entregue o pote. Pode dividir.</p>
+              )}
+              {room.status === "on_hold" && (
+                <p className="mt-2 text-sm text-base-content/50">
+                  {seatedCount < 2 ? `Aguardando jogadores (${seatedCount}/2)` : "Pronta para começar"}
+                </p>
+              )}
+            </section>
 
-      {isDealer && !playing && (
-        <div className="mx-auto mt-4 grid max-w-md grid-cols-2 gap-2">
-          <Button variant="ghost" disabled={actionBusy} onClick={() => setInviteOpen(true)}>
-            Convidar amigos
-          </Button>
-          <Button variant="ghost" disabled={actionBusy} onClick={share}>
-            Link do convite
-          </Button>
-          <Button variant="felt" disabled={actionBusy} onClick={() => setSettingsOpen(true)}>
-            Configurar mesa
-          </Button>
-          {room.status === "on_hold" && (
-            <Button
-              disabled={!canStart || actionBusy}
-              onClick={() => sendAction({ action: "set_status", status: "in_progress" })}
-            >
-              {actionBusy ? "Aguarde…" : canStart ? "Começar jogo" : "Faltam jogadores"}
-            </Button>
-          )}
-        </div>
-      )}
+            {isDealer && !playing && (
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="ghost" disabled={actionBusy} onClick={() => setInviteOpen(true)}>
+                  Convidar amigos
+                </Button>
+                <Button variant="ghost" disabled={actionBusy} onClick={share}>
+                  Link do convite
+                </Button>
+                <Button variant="secondary" disabled={actionBusy} onClick={() => setSettingsOpen(true)}>
+                  Configurar mesa
+                </Button>
+                {room.status === "on_hold" && (
+                  <Button
+                    disabled={!canStart || actionBusy}
+                    onClick={() => sendAction({ action: "set_status", status: "in_progress" })}
+                  >
+                    {actionBusy ? "Aguarde…" : canStart ? "Começar jogo" : "Faltam jogadores"}
+                  </Button>
+                )}
+              </div>
+            )}
 
-      {isDealer && playing && (
-        <div className="mx-auto mt-4 grid max-w-md grid-cols-2 gap-2">
-          {canAward && (
-            <Button
-              className="col-span-2"
-              disabled={winners.length === 0 || actionBusy}
-              onClick={() => {
-                sendAction({ action: "award", names: winners });
-                setWinners([]);
-              }}
-            >
-              {actionBusy
-                ? "Aguarde…"
-                : winners.length > 1
-                  ? `Dividir pote (${winners.length})`
-                  : "Entregar pote"}
-            </Button>
-          )}
-          {canNextRound && (
-            <Button
-              className="col-span-2"
-              disabled={actionBusy}
-              onClick={() => sendAction({ action: "start_round" })}
-            >
-              {actionBusy ? "Aguarde…" : "Próxima rodada"}
-            </Button>
-          )}
-        </div>
-      )}
+            {isDealer && playing && (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {canAward && (
+                  <Button
+                    className="sm:col-span-2"
+                    disabled={winners.length === 0 || actionBusy}
+                    onClick={() => {
+                      sendAction({ action: "award", names: winners });
+                      setWinners([]);
+                    }}
+                  >
+                    {actionBusy
+                      ? "Aguarde…"
+                      : winners.length > 1
+                        ? `Dividir pote (${winners.length})`
+                        : "Entregar pote"}
+                  </Button>
+                )}
+                {canNextRound && (
+                  <Button
+                    className="sm:col-span-2"
+                    disabled={actionBusy}
+                    onClick={() => sendAction({ action: "start_round" })}
+                  >
+                    {actionBusy ? "Aguarde…" : "Próxima rodada"}
+                  </Button>
+                )}
+              </div>
+            )}
 
-      <section className="mx-auto mt-6 max-w-md">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm uppercase tracking-[0.18em] text-white/40">Jogadores</h2>
-          {isDealer && room.status === "on_hold" && (
-            <p className="text-xs text-gold/70">Arraste para o lugar real</p>
-          )}
-        </div>
-        <div className="space-y-2">
-          {room.players
-            .slice()
-            .sort((a, b) => a.seat - b.seat)
-            .map((p) => (
-              <PlayerCard
-                key={p.name}
-                player={p}
-                canReorder={isDealer && room.status === "on_hold" && !actionBusy}
-                selectable={canAward && !actionBusy}
-                selected={winners.includes(p.name)}
-                onSelect={() => toggleWinner(p.name)}
-                onUp={() => move(p.name, -1)}
-                onDown={() => move(p.name, 1)}
-                onDragStart={onDragStart}
-                onDrop={onDrop}
-              />
-            ))}
-        </div>
-      </section>
+            {!isDealer && me && (
+              <div className="flex gap-2">
+                {needsRebuy ? (
+                  <Button className="flex-1" disabled={actionBusy} onClick={() => setRebuyOpen(true)}>
+                    Rebuy
+                  </Button>
+                ) : me.status === "sitting_out" ? (
+                  <Button
+                    className="flex-1"
+                    disabled={actionBusy}
+                    onClick={() => sendAction({ action: "sit_in" })}
+                  >
+                    {actionBusy ? "Aguarde…" : "Sentar de novo"}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    className="flex-1"
+                    disabled={!canSitOut || actionBusy}
+                    onClick={() => sendAction({ action: "sit_out" })}
+                  >
+                    Levantar
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
 
-      {!isDealer && me && (
-        <div className="mx-auto mt-5 flex max-w-md gap-2">
-          {needsRebuy ? (
-            <Button className="flex-1" disabled={actionBusy} onClick={() => setRebuyOpen(true)}>
-              Rebuy
-            </Button>
-          ) : me.status === "sitting_out" ? (
-            <Button
-              className="flex-1"
-              disabled={actionBusy}
-              onClick={() => sendAction({ action: "sit_in" })}
-            >
-              {actionBusy ? "Aguarde…" : "Sentar de novo"}
-            </Button>
-          ) : (
-            <Button
-              variant="ghost"
-              className="flex-1"
-              disabled={!canSitOut || actionBusy}
-              onClick={() => sendAction({ action: "sit_out" })}
-            >
-              Levantar
-            </Button>
-          )}
+          <section>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm uppercase tracking-[0.18em] text-base-content/45">Jogadores</h2>
+              {isDealer && room.status === "on_hold" && (
+                <p className="text-xs text-primary/70">Arraste para o lugar real</p>
+              )}
+            </div>
+            <div className="space-y-2 md:grid md:grid-cols-2 md:gap-2 md:space-y-0 lg:grid-cols-1">
+              {room.players
+                .slice()
+                .sort((a, b) => a.seat - b.seat)
+                .map((p) => (
+                  <PlayerCard
+                    key={p.name}
+                    player={p}
+                    canReorder={isDealer && room.status === "on_hold" && !actionBusy}
+                    selectable={canAward && !actionBusy}
+                    selected={winners.includes(p.name)}
+                    onSelect={() => toggleWinner(p.name)}
+                    onUp={() => move(p.name, -1)}
+                    onDown={() => move(p.name, 1)}
+                    onDragStart={onDragStart}
+                    onDrop={onDrop}
+                  />
+                ))}
+            </div>
+          </section>
         </div>
-      )}
+      </div>
 
       {playing && (myTurn || !isDealer) && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-felt-deep/95 px-4 py-4 safe-bottom">
-          <div className="mx-auto max-w-md space-y-3">
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-base-300 bg-base-100/95 px-4 py-4 safe-bottom md:px-8">
+          <div className="mx-auto max-w-md space-y-3 md:max-w-2xl">
             {myTurn && me ? (
               <>
-                <p className="text-center text-sm font-semibold text-gold">
+                <p className="text-center text-sm font-semibold text-primary md:text-base">
                   Sua vez · stack {me.stack} · pagar {toCall}
                 </p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
                   <Button
                     variant="ghost"
                     disabled={actionBusy}
@@ -289,7 +295,7 @@ export function RoomScreen() {
                   </Button>
                   {toCall === 0 ? (
                     <Button
-                      variant="felt"
+                      variant="secondary"
                       disabled={actionBusy}
                       onClick={() => sendAction({ action: "bet", kind: "check" })}
                     >
@@ -297,7 +303,7 @@ export function RoomScreen() {
                     </Button>
                   ) : (
                     <Button
-                      variant="felt"
+                      variant="secondary"
                       disabled={actionBusy}
                       onClick={() => sendAction({ action: "bet", kind: "call" })}
                     >
@@ -329,10 +335,11 @@ export function RoomScreen() {
                   value={raiseTo || raiseDefault}
                   onChange={(e) => setRaiseTo(Number(e.target.value))}
                   disabled={actionBusy}
+                  className="md:max-w-xs md:mx-auto"
                 />
               </>
             ) : (
-              <p className="text-center text-sm text-gold-soft">
+              <p className="text-center text-sm text-base-content md:text-base">
                 {needsRebuy
                   ? "Você quebrou. Faça rebuy para a próxima mão."
                   : room.bettingOpen && turnPlayer
@@ -362,7 +369,7 @@ export function RoomScreen() {
           </Button>
           {playing && (
             <Button
-              variant="felt"
+              variant="secondary"
               disabled={actionBusy}
               onClick={() => {
                 sendAction({ action: "set_status", status: "on_hold" });
@@ -390,8 +397,8 @@ export function RoomScreen() {
       <Sheet open={manageOpen} title="Gerenciar jogadores" onClose={() => setManageOpen(false)}>
         <div className="space-y-2">
           {room.players.map((p) => (
-            <div key={p.name} className="flex items-center justify-between gap-2 rounded-2xl bg-black/20 px-3 py-3">
-              <p className="text-gold-soft">{p.name}</p>
+            <div key={p.name} className="flex items-center justify-between gap-2 rounded-2xl bg-base-200/60 px-3 py-3">
+              <p className="text-base-content">{p.name}</p>
               <div className="flex gap-2">
                 <Button
                   variant="ghost"
@@ -422,10 +429,10 @@ export function RoomScreen() {
 
       <Sheet open={inviteOpen} title="Convidar amigos" onClose={() => setInviteOpen(false)}>
         <div className="space-y-2">
-          {friends.length === 0 && <p className="text-sm text-white/40">Nenhum amigo ainda.</p>}
+          {friends.length === 0 && <p className="text-sm text-base-content/45">Nenhum amigo ainda.</p>}
           {friends.map((f) => (
-            <div key={f.name} className="flex items-center justify-between rounded-2xl bg-black/20 px-4 py-3">
-              <p className="text-gold-soft">{f.name}</p>
+            <div key={f.name} className="flex items-center justify-between rounded-2xl bg-base-200/60 px-4 py-3">
+              <p className="text-base-content">{f.name}</p>
               <Button
                 className="min-h-10 px-3 py-2 text-xs"
                 disabled={actionBusy}
@@ -461,7 +468,7 @@ export function RoomScreen() {
 
       <Sheet open={rebuyOpen} title="Rebuy" onClose={() => setRebuyOpen(false)}>
         <div className="space-y-3">
-          <p className="text-sm text-white/60">
+          <p className="text-sm text-base-content/60">
             Saldo da conta: {user.chips}. Entra na próxima mão, não nesta.
           </p>
           <Field label="Quantas fichas">
@@ -481,7 +488,7 @@ export function RoomScreen() {
       </Sheet>
 
       <Sheet open={leaveOpen} title="Sair da mesa" onClose={() => setLeaveOpen(false)}>
-        <p className="mb-4 text-sm leading-relaxed text-white/70">
+        <p className="mb-4 text-sm leading-relaxed text-base-content/70">
           {isDealer
             ? "Se você sair, a sala é encerrada e o pote volta para quem apostou."
             : inPot
@@ -560,28 +567,28 @@ function PlayerCard({
       onDragStart={(e) => onDragStart(e, player.name)}
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => onDrop(e, player.name)}
-      className={`rounded-2xl border px-3 py-3 ${
+      className={`card card-border px-3 py-3 ${
         selected
-          ? "border-gold bg-gold/20"
+          ? "border-primary bg-primary/20"
           : player.isTurn
-            ? "border-gold bg-gold/10"
-            : "border-white/10 bg-black/20"
+            ? "border-primary bg-primary/10"
+            : "border-base-300 bg-base-200/60"
       } ${selectable ? "cursor-pointer" : ""}`}
     >
       <div className="flex items-center gap-3">
         {canReorder && (
           <div className="flex flex-col">
-            <button className="px-1 text-white/40" onClick={onUp} aria-label="Subir">
+            <button className="px-1 text-base-content/45" onClick={onUp} aria-label="Subir">
               ▲
             </button>
-            <button className="px-1 text-white/40" onClick={onDown} aria-label="Descer">
+            <button className="px-1 text-base-content/45" onClick={onDown} aria-label="Descer">
               ▼
             </button>
           </div>
         )}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate font-semibold text-gold-soft">{player.name}</p>
+            <p className="truncate font-semibold text-base-content">{player.name}</p>
             {player.hasButton && <Badge>BTN</Badge>}
             {player.role === "sb" && <Badge>SB</Badge>}
             {player.role === "bb" && <Badge>BB</Badge>}
@@ -590,7 +597,7 @@ function PlayerCard({
             <StatusPill status={player.status} />
             {selected && <Badge>Vencedor</Badge>}
           </div>
-          <p className="mt-1 text-sm text-white/55">
+          <p className="mt-1 text-sm text-base-content/55">
             Stack {player.stack} · aposta {player.bet}
           </p>
         </div>
@@ -600,9 +607,5 @@ function PlayerCard({
 }
 
 function Badge({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="rounded-full bg-gold/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gold">
-      {children}
-    </span>
-  );
+  return <span className="badge badge-soft badge-primary badge-sm">{children}</span>;
 }

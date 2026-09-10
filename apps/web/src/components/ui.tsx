@@ -8,41 +8,33 @@ export function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label className="block space-y-1.5">
-      <span className="text-xs uppercase tracking-[0.16em] text-gold-soft/70">{label}</span>
+    <fieldset className="fieldset p-0">
+      <legend className="fieldset-legend">{label}</legend>
       {children}
-    </label>
+    </fieldset>
   );
 }
 
 export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <input
-      {...props}
-      className={`w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3.5 text-base text-gold-soft outline-none placeholder:text-white/25 focus:border-gold/60 ${props.className ?? ""}`}
-    />
-  );
+  return <input {...props} className={`input input-bordered w-full ${props.className ?? ""}`} />;
 }
 
 export function Button({
   children,
-  variant = "gold",
+  variant = "primary",
   className = "",
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "gold" | "ghost" | "danger" | "felt";
+  variant?: "primary" | "ghost" | "danger" | "secondary";
 }) {
   const styles = {
-    gold: "bg-gold text-felt-deep shadow-[0_4px_0_#a67c2d] active:translate-y-0.5 active:shadow-none",
-    ghost: "bg-white/5 text-gold-soft border border-white/10",
-    danger: "bg-[#c23b3b] text-white shadow-[0_4px_0_#7a1f1f] active:translate-y-0.5 active:shadow-none",
-    felt: "bg-felt-rim text-gold-soft border border-white/10",
+    primary: "btn-primary",
+    ghost: "btn-ghost",
+    danger: "btn-error",
+    secondary: "btn-secondary",
   }[variant];
   return (
-    <button
-      {...props}
-      className={`min-h-12 rounded-2xl px-4 py-3 text-sm font-semibold tracking-wide disabled:opacity-40 ${styles} ${className}`}
-    >
+    <button {...props} className={`btn ${styles} ${className}`}>
       {children}
     </button>
   );
@@ -61,20 +53,22 @@ export function Sheet({
 }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-40 flex items-end bg-black/55 p-3 safe-bottom" onClick={onClose}>
-      <div
-        className="w-full rounded-[28px] border border-white/10 bg-felt-deep p-5 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-display text-2xl text-gold-soft">{title}</h3>
-          <button className="text-sm text-white/50" onClick={onClose}>
+    <dialog className="modal modal-open modal-bottom sm:modal-middle" open>
+      <div className="modal-box max-w-lg">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <h3 className="font-display text-2xl font-bold">{title}</h3>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>
             Fechar
           </button>
         </div>
         {children}
       </div>
-    </div>
+      <form method="dialog" className="modal-backdrop">
+        <button type="button" onClick={onClose}>
+          close
+        </button>
+      </form>
+    </dialog>
   );
 }
 
@@ -91,16 +85,16 @@ export function StatusPill({ status }: { status: string }) {
     busted: "Quebrado",
   };
   const color: Record<string, string> = {
-    on_hold: "bg-amber-400/15 text-amber-200",
-    in_progress: "bg-emerald-400/15 text-emerald-200",
-    dead: "bg-white/10 text-white/50",
-    folded: "bg-white/10 text-white/45",
-    suspended: "bg-red-400/15 text-red-200",
-    sitting_out: "bg-sky-400/15 text-sky-200",
-    busted: "bg-red-400/20 text-red-200",
+    on_hold: "badge-warning",
+    in_progress: "badge-success",
+    dead: "badge-ghost",
+    folded: "badge-ghost",
+    suspended: "badge-error",
+    sitting_out: "badge-info",
+    busted: "badge-error",
   };
   return (
-    <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider ${color[status] ?? "bg-white/10 text-white/70"}`}>
+    <span className={`badge badge-sm badge-soft ${color[status] ?? "badge-neutral"}`}>
       {map[status] ?? status}
     </span>
   );
