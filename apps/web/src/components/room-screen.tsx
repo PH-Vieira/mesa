@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { RoomPlayer } from "@mesa/shared";
+import type { RoomPlayer, RoomState } from "@mesa/shared";
 import { useApp } from "@/lib/app-context";
 import { requestWakeLock } from "@/lib/wake-lock";
 import { Button, Field, Input, Sheet, StatusPill } from "./ui";
 import { TurnAlert } from "./turn-alert";
 
 export function RoomScreen() {
-  const { room, user, friends, sendAction } = useApp();
+  const { room, user, friends, sendAction, actionBusy } = useApp();
   const [inviteOpen, setInviteOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
@@ -66,6 +66,7 @@ export function RoomScreen() {
   const canAward = isDealer && room.status === "in_progress" && room.pot > 0 && !room.bettingOpen;
   const canNextRound = isDealer && room.status === "in_progress" && room.pot === 0 && !room.bettingOpen;
   const playing = room.status === "in_progress";
+  const lastBanner = formatLastAction(room.lastAction);
 
   const shareUrl =
     typeof window !== "undefined" ? `${window.location.origin}/?sala=${room.id}` : room.id;
@@ -81,7 +82,7 @@ export function RoomScreen() {
   }
 
   function move(name: string, dir: -1 | 1) {
-    if (!room) return;
+    if (!room || actionBusy) return;
     const order = [...room.players].sort((a, b) => a.seat - b.seat).map((p) => p.name);
     const i = order.indexOf(name);
     const j = i + dir;
@@ -100,7 +101,7 @@ export function RoomScreen() {
 
   function onDrop(e: React.DragEvent, target: string) {
     e.preventDefault();
-    if (!room) return;
+    if (!room || actionBusy) return;
     const source = e.dataTransfer.getData("text/plain");
     if (!source || source === target) return;
     const order = [...room.players].sort((a, b) => a.seat - b.seat).map((p) => p.name);
@@ -147,6 +148,9 @@ export function RoomScreen() {
         <p className="mt-1 text-sm text-white/45">
           Aposta atual {room.currentBet} · min {room.minBet} / máx {room.maxBet}
         </p>
+        {lastBanner && (
+          <p className="mt-2 animate-pulse text-base font-semibold text-amber-200">{lastBanner}</p>
+        )}
         {room.bettingOpen && turnPlayer && (
           <p className="mt-2 text-lg font-semibold text-emerald-200">Vez de {turnPlayer.name}</p>
         )}
@@ -162,21 +166,21 @@ export function RoomScreen() {
 
       {isDealer && !playing && (
         <div className="mx-auto mt-4 grid max-w-md grid-cols-2 gap-2">
-          <Button variant="ghost" onClick={() => setInviteOpen(true)}>
+          <Button variant="ghost" disabled={actionBusy} onClick={() => setInviteOpen(true)}>
             Convidar amigos
           </Button>
-          <Button variant="ghost" onClick={share}>
+          <Button variant="ghost" disabled={actionBusy} onClick={share}>
             Link do convite
           </Button>
-          <Button variant="felt" onClick={() => setSettingsOpen(true)}>
+          <Button variant="felt" disabled={actionBusy} onClick={() => setSettingsOpen(true)}>
             Configurar mesa
           </Button>
           {room.status === "on_hold" && (
             <Button
-              disabled={!canStart}
+              disabled={!canStart || actionBusy}
               onClick={() => sendAction({ action: "set_status", status: "in_progress" })}
             >
-              {canStart ? "Começar jogo" : "Faltam jogadores"}
+              {actionBusy ? "Aguarde…" : canStart ? "Começar jogo" : "Faltam jogadores"}
             </Button>
           )}
         </div>
@@ -187,18 +191,26 @@ export function RoomScreen() {
           {canAward && (
             <Button
               className="col-span-2"
-              disabled={winners.length === 0}
+              disabled={winners.length === 0 || actionBusy}
               onClick={() => {
                 sendAction({ action: "award", names: winners });
                 setWinners([]);
               }}
             >
-              {winners.length > 1 ? `Dividir pote (${winners.length})` : "Entregar pote"}
+              {actionBusy
+                ? "Aguarde…"
+                : winners.length > 1
+                  ? `Dividir pote (${winners.length})`
+                  : "Entregar pote"}
             </Button>
           )}
           {canNextRound && (
-            <Button className="col-span-2" onClick={() => sendAction({ action: "start_round" })}>
-              Próxima rodada
+            <Button
+              className="col-span-2"
+              disabled={actionBusy}
+              onClick={() => sendAction({ action: "start_round" })}
+            >
+              {actionBusy ? "Aguarde…" : "Próxima rodada"}
             </Button>
           )}
         </div>
@@ -219,8 +231,8 @@ export function RoomScreen() {
               <PlayerCard
                 key={p.name}
                 player={p}
-                canReorder={isDealer && room.status === "on_hold"}
-                selectable={canAward}
+                canReorder={isDealer && room.status === "on_hold" && !actionBusy}
+                selectable={canAward && !actionBusy}
                 selected={winners.includes(p.name)}
                 onSelect={() => toggleWinner(p.name)}
                 onUp={() => move(p.name, -1)}
@@ -235,18 +247,22 @@ export function RoomScreen() {
       {!isDealer && me && (
         <div className="mx-auto mt-5 flex max-w-md gap-2">
           {needsRebuy ? (
-            <Button className="flex-1" onClick={() => setRebuyOpen(true)}>
+            <Button className="flex-1" disabled={actionBusy} onClick={() => setRebuyOpen(true)}>
               Rebuy
             </Button>
           ) : me.status === "sitting_out" ? (
-            <Button className="flex-1" onClick={() => sendAction({ action: "sit_in" })}>
-              Sentar de novo
+            <Button
+              className="flex-1"
+              disabled={actionBusy}
+              onClick={() => sendAction({ action: "sit_in" })}
+            >
+              {actionBusy ? "Aguarde…" : "Sentar de novo"}
             </Button>
           ) : (
             <Button
               variant="ghost"
               className="flex-1"
-              disabled={!canSitOut}
+              disabled={!canSitOut || actionBusy}
               onClick={() => sendAction({ action: "sit_out" })}
             >
               Levantar
@@ -264,20 +280,32 @@ export function RoomScreen() {
                   Sua vez · stack {me.stack} · pagar {toCall}
                 </p>
                 <div className="grid grid-cols-2 gap-2">
-                  <Button variant="ghost" onClick={() => sendAction({ action: "bet", kind: "fold" })}>
+                  <Button
+                    variant="ghost"
+                    disabled={actionBusy}
+                    onClick={() => sendAction({ action: "bet", kind: "fold" })}
+                  >
                     Fold
                   </Button>
                   {toCall === 0 ? (
-                    <Button variant="felt" onClick={() => sendAction({ action: "bet", kind: "check" })}>
+                    <Button
+                      variant="felt"
+                      disabled={actionBusy}
+                      onClick={() => sendAction({ action: "bet", kind: "check" })}
+                    >
                       Check
                     </Button>
                   ) : (
-                    <Button variant="felt" onClick={() => sendAction({ action: "bet", kind: "call" })}>
+                    <Button
+                      variant="felt"
+                      disabled={actionBusy}
+                      onClick={() => sendAction({ action: "bet", kind: "call" })}
+                    >
                       {toCall >= me.stack ? `All-in ${me.stack}` : `Call ${toCall}`}
                     </Button>
                   )}
                   <Button
-                    disabled={me.stack <= toCall}
+                    disabled={me.stack <= toCall || actionBusy}
                     onClick={() =>
                       sendAction({
                         action: "bet",
@@ -290,7 +318,7 @@ export function RoomScreen() {
                   </Button>
                   <Button
                     variant="danger"
-                    disabled={me.stack <= 0}
+                    disabled={me.stack <= 0 || actionBusy}
                     onClick={() => sendAction({ action: "bet", kind: "all_in" })}
                   >
                     All-in {me.stack}
@@ -300,6 +328,7 @@ export function RoomScreen() {
                   type="number"
                   value={raiseTo || raiseDefault}
                   onChange={(e) => setRaiseTo(Number(e.target.value))}
+                  disabled={actionBusy}
                 />
               </>
             ) : (
@@ -334,6 +363,7 @@ export function RoomScreen() {
           {playing && (
             <Button
               variant="felt"
+              disabled={actionBusy}
               onClick={() => {
                 sendAction({ action: "set_status", status: "on_hold" });
                 setMenuOpen(false);
@@ -345,6 +375,7 @@ export function RoomScreen() {
           {room.status !== "dead" && (
             <Button
               variant="danger"
+              disabled={actionBusy}
               onClick={() => {
                 sendAction({ action: "set_status", status: "dead" });
                 setMenuOpen(false);
@@ -365,6 +396,7 @@ export function RoomScreen() {
                 <Button
                   variant="ghost"
                   className="min-h-10 px-3 py-2 text-xs"
+                  disabled={actionBusy}
                   onClick={() =>
                     sendAction({
                       action: p.status === "suspended" ? "unsuspend" : "suspend",
@@ -377,6 +409,7 @@ export function RoomScreen() {
                 <Button
                   variant="danger"
                   className="min-h-10 px-3 py-2 text-xs"
+                  disabled={actionBusy}
                   onClick={() => sendAction({ action: "kick", name: p.name })}
                 >
                   Expulsar
@@ -395,6 +428,7 @@ export function RoomScreen() {
               <p className="text-gold-soft">{f.name}</p>
               <Button
                 className="min-h-10 px-3 py-2 text-xs"
+                disabled={actionBusy}
                 onClick={() => sendAction({ action: "invite", name: f.name })}
               >
                 Convidar
@@ -414,6 +448,7 @@ export function RoomScreen() {
           </Field>
           <Button
             className="w-full"
+            disabled={actionBusy}
             onClick={() => {
               sendAction({ action: "settings", minBet, maxBet });
               setSettingsOpen(false);
@@ -434,6 +469,7 @@ export function RoomScreen() {
           </Field>
           <Button
             className="w-full"
+            disabled={actionBusy}
             onClick={() => {
               sendAction({ action: "buy_in", amount: rebuy });
               setRebuyOpen(false);
@@ -453,22 +489,47 @@ export function RoomScreen() {
               : "Seu stack volta para o saldo da conta."}
         </p>
         <div className="grid grid-cols-2 gap-2">
-          <Button variant="ghost" onClick={() => setLeaveOpen(false)}>
+          <Button variant="ghost" disabled={actionBusy} onClick={() => setLeaveOpen(false)}>
             Ficar
           </Button>
           <Button
             variant="danger"
+            disabled={actionBusy}
             onClick={() => {
               sendAction({ action: "leave" });
               setLeaveOpen(false);
             }}
           >
-            Sair mesmo
+            {actionBusy ? "Saindo…" : "Sair mesmo"}
           </Button>
         </div>
       </Sheet>
     </div>
   );
+}
+
+function formatLastAction(action: RoomState["lastAction"]): string | null {
+  if (!action) return null;
+  switch (action.kind) {
+    case "fold":
+      return `${action.name} deu fold`;
+    case "check":
+      return `${action.name} deu check`;
+    case "call":
+      return action.amount != null
+        ? `${action.name} pagou ${action.amount}`
+        : `${action.name} pagou`;
+    case "raise":
+      return action.amount != null
+        ? `${action.name} subiu para ${action.amount}`
+        : `${action.name} subiu`;
+    case "all_in":
+      return action.amount != null
+        ? `${action.name} all-in (${action.amount})`
+        : `${action.name} all-in`;
+    default:
+      return null;
+  }
 }
 
 function PlayerCard({
@@ -525,6 +586,7 @@ function PlayerCard({
             {player.role === "sb" && <Badge>SB</Badge>}
             {player.role === "bb" && <Badge>BB</Badge>}
             {player.allIn && <Badge>All-in</Badge>}
+            {player.lastAction && <Badge>{player.lastAction}</Badge>}
             <StatusPill status={player.status} />
             {selected && <Badge>Vencedor</Badge>}
           </div>

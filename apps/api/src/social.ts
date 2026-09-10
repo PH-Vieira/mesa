@@ -67,6 +67,19 @@ export function pushSocial(userId: number): void {
 }
 
 export function listNotifications(userId: number): AppNotification[] {
+  // Convites de salas mortas/inexistentes não devem aparecer.
+  db.prepare(
+    `UPDATE notifications
+     SET read = 1
+     WHERE user_id = ?
+       AND type = 'game_invite'
+       AND read = 0
+       AND (
+         room_id IS NULL
+         OR room_id NOT IN (SELECT id FROM rooms WHERE status != 'dead')
+       )`,
+  ).run(userId);
+
   return db
     .prepare(
       `SELECT id, type, from_name as fromName, room_id as roomId, created_at as createdAt
@@ -76,6 +89,31 @@ export function listNotifications(userId: number): AppNotification[] {
        LIMIT 40`,
     )
     .all(userId) as unknown as AppNotification[];
+}
+
+export function markRoomInvitesRead(userId: number, roomId: string): void {
+  db.prepare(
+    `UPDATE notifications
+     SET read = 1
+     WHERE user_id = ? AND type = 'game_invite' AND room_id = ? AND read = 0`,
+  ).run(userId, roomId);
+}
+
+/** Quando a sala encerra, some com os convites pendentes dela. */
+export function clearInvitesForRoom(roomId: string): void {
+  const rows = db
+    .prepare(
+      `SELECT DISTINCT user_id as userId
+       FROM notifications
+       WHERE type = 'game_invite' AND room_id = ? AND read = 0`,
+    )
+    .all(roomId) as { userId: number }[];
+  db.prepare(
+    `UPDATE notifications SET read = 1 WHERE type = 'game_invite' AND room_id = ? AND read = 0`,
+  ).run(roomId);
+  for (const row of rows) {
+    pushSocial(row.userId);
+  }
 }
 
 export function addNotification(

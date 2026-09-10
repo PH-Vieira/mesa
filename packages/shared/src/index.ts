@@ -88,6 +88,13 @@ export interface RoomPlayer {
   isTurn: boolean;
   acted: boolean;
   allIn: boolean;
+  lastAction: string | null;
+}
+
+export interface RoomLastAction {
+  name: string;
+  kind: BetKind;
+  amount?: number;
 }
 
 export interface RoomState {
@@ -102,6 +109,7 @@ export interface RoomState {
   players: RoomPlayer[];
   dealerName: string;
   you: string;
+  lastAction: RoomLastAction | null;
 }
 
 export type RoomAction =

@@ -2,6 +2,7 @@ import { customAlphabet } from "nanoid";
 import {
   ROOM_ID_LENGTH,
   type RoomAction,
+  type RoomLastAction,
   type RoomState,
   type PlayerStatus,
 } from "@mesa/shared";
@@ -17,11 +18,37 @@ import {
   type RoomRow,
 } from "./db.js";
 import { sendToUser } from "./hub.js";
-import { inviteFriendToRoom } from "./social.js";
+import { inviteFriendToRoom, clearInvitesForRoom, markRoomInvitesRead, pushSocial } from "./social.js";
 import { normalizeName } from "@mesa/shared";
 import { log } from "./log.js";
 
 const roomId = customAlphabet("23456789ABCDEFGHJKLMNPQRSTUVWXYZ", ROOM_ID_LENGTH);
+
+/** Última ação de aposta por sala (feedback visual; não precisa persistir). */
+const lastActions = new Map<string, RoomLastAction>();
+
+function setLastAction(roomIdValue: string, action: RoomLastAction | null): void {
+  if (!action) lastActions.delete(roomIdValue);
+  else lastActions.set(roomIdValue, action);
+}
+
+function formatPlayerAction(action: RoomLastAction | null, playerName: string): string | null {
+  if (!action || action.name !== playerName) return null;
+  switch (action.kind) {
+    case "fold":
+      return "Fold";
+    case "check":
+      return "Check";
+    case "call":
+      return action.amount != null ? `Call ${action.amount}` : "Call";
+    case "raise":
+      return action.amount != null ? `Raise ${action.amount}` : "Raise";
+    case "all_in":
+      return action.amount != null ? `All-in ${action.amount}` : "All-in";
+    default:
+      return null;
+  }
+}
 
 function nextClockwise(
   players: RoomPlayerRow[],
@@ -45,6 +72,7 @@ function nextClockwise(
 export function toRoomState(room: RoomRow, viewerName: string): RoomState {
   const players = getRoomPlayers(room.id).filter((p) => p.user_id !== room.dealer_id);
   const dealer = getUserById(room.dealer_id);
+  const lastAction = lastActions.get(room.id) ?? null;
   return {
     id: room.id,
     status: room.status,
@@ -56,6 +84,7 @@ export function toRoomState(room: RoomRow, viewerName: string): RoomState {
     bettingOpen: Boolean(room.betting_open),
     dealerName: dealer?.name ?? "",
     you: viewerName,
+    lastAction,
     players: players.map((p) => {
       let role: "sb" | "bb" | null = null;
       if (room.betting_open || room.round_no > 0) {
@@ -86,6 +115,7 @@ export function toRoomState(room: RoomRow, viewerName: string): RoomState {
         isTurn: p.user_id === room.turn_user_id && Boolean(room.betting_open),
         acted: Boolean(p.acted),
         allIn: p.stack === 0 && (p.bet > 0 || p.committed > 0) && p.status !== "busted",
+        lastAction: formatPlayerAction(lastAction, p.name),
       };
     }),
   };
@@ -113,11 +143,13 @@ export function broadcastRoom(roomId: string): void {
   const viewers = new Set(
     players.filter((p) => p.user_id !== room.dealer_id).map((p) => p.user_id),
   );
-  viewers.add(room.dealer_id);
+  const dealer = getUserById(room.dealer_id);
+  // Só quem ainda está na sala — evita reabrir a tela após leave/room_left.
+  if (dealer?.current_room_id === room.id) viewers.add(room.dealer_id);
   const snapshot = toRoomState(room, "");
   for (const userId of viewers) {
     const user = getUserById(userId);
-    if (!user) continue;
+    if (!user || user.current_room_id !== room.id) continue;
     sendToUser(userId, { type: "room", room: { ...snapshot, you: user.name } });
   }
 }
@@ -249,7 +281,11 @@ export function joinRoom(
     return { error: "Você já está em outra sala." };
   }
   const existing = getRoomPlayers(room.id).find((p) => p.user_id === userId);
-  if (existing || user.id === room.dealer_id) return {};
+  if (existing || user.id === room.dealer_id) {
+    markRoomInvitesRead(userId, room.id);
+    pushSocial(userId);
+    return {};
+  }
   if (buyIn < room.min_bet || buyIn > user.chips) {
     return { error: "Buy-in inválido para o seu saldo." };
   }
@@ -267,7 +303,9 @@ export function joinRoom(
     );
   });
   log.ok("sala", `${user.name} entrou em ${room.id}  buy-in=${buyIn}`);
+  markRoomInvitesRead(userId, room.id);
   pushProfile(userId);
+  pushSocial(userId);
   broadcastRoom(room.id);
   return {};
 }
@@ -340,6 +378,7 @@ function startRound(room: RoomRow): string | null {
       betting_open: 1,
     });
   });
+  setLastAction(room.id, null);
   const started = getRoom(room.id);
   const firstName = started
     ? getRoomPlayers(room.id).find((p) => p.user_id === started.turn_user_id)?.name
@@ -421,9 +460,12 @@ function applyBet(room: RoomRow, userId: number, kind: string, amount?: number):
   if (room.turn_user_id !== userId) return "Não é a sua vez.";
   const p = getRoomPlayers(room.id).find((x) => x.user_id === userId);
   if (!p || p.status !== "seated") return "Você não está sentado nesta mão.";
+  const actor = getUserById(userId);
+  const actorName = actor?.name ?? p.name;
 
   if (kind === "fold") {
     updatePlayer(room.id, userId, { status: "folded", acted: 1 });
+    setLastAction(room.id, { name: actorName, kind: "fold" });
     advanceTurn(room.id);
     return null;
   }
@@ -431,6 +473,7 @@ function applyBet(room: RoomRow, userId: number, kind: string, amount?: number):
   if (kind === "check") {
     if (p.bet !== room.current_bet) return "Não é possível dar check. Pague ou aumente.";
     updatePlayer(room.id, userId, { acted: 1 });
+    setLastAction(room.id, { name: actorName, kind: "check" });
     advanceTurn(room.id);
     return null;
   }
@@ -445,6 +488,7 @@ function applyBet(room: RoomRow, userId: number, kind: string, amount?: number):
       acted: 1,
     });
     updateRoom(room.id, { pot: room.pot + put });
+    setLastAction(room.id, { name: actorName, kind: "call", amount: put });
     advanceTurn(room.id);
     return null;
   }
@@ -472,6 +516,7 @@ function applyBet(room: RoomRow, userId: number, kind: string, amount?: number):
       }
     }
     updateRoom(room.id, { pot: room.pot + need, current_bet: raiseTo });
+    setLastAction(room.id, { name: actorName, kind: "raise", amount: raiseTo });
     advanceTurn(room.id);
     return null;
   }
@@ -496,6 +541,7 @@ function applyBet(room: RoomRow, userId: number, kind: string, amount?: number):
     } else {
       updateRoom(room.id, { pot: room.pot + put });
     }
+    setLastAction(room.id, { name: actorName, kind: "all_in", amount: put });
     advanceTurn(room.id);
     return null;
   }
@@ -523,6 +569,7 @@ export function handleRoomAction(userId: number, payload: RoomAction): string | 
       if (payload.status === "dead") {
         returnPotToPlayers(room);
         updateRoom(room.id, { status: "dead", betting_open: 0, turn_user_id: null });
+        clearInvitesForRoom(room.id);
         break;
       }
       if (payload.status === "in_progress") {
@@ -679,7 +726,19 @@ export function handleRoomAction(userId: number, payload: RoomAction): string | 
       if (userId === room.dealer_id) {
         if (room.status !== "dead") {
           returnPotToPlayers(room);
-          updateRoom(room.id, { status: "dead" });
+          updateRoom(room.id, { status: "dead", betting_open: 0, turn_user_id: null });
+        }
+        setLastAction(room.id, null);
+        clearInvitesForRoom(room.id);
+        const others = getRoomPlayers(room.id).filter((p) => p.user_id !== userId);
+        for (const p of others) {
+          cashOut(room.id, p.user_id, false);
+          sendToUser(p.user_id, { type: "room_left", roomId: room.id });
+          sendToUser(p.user_id, {
+            type: "toast",
+            level: "warn",
+            message: "O dealer encerrou a sala.",
+          });
         }
         db.prepare("UPDATE users SET current_room_id = NULL WHERE id = ?").run(userId);
         sendToUser(userId, { type: "room_left", roomId: room.id });

@@ -78,14 +78,14 @@ export function HomeScreen() {
 
   return (
     <div className="felt-bg min-h-dvh px-4 pb-10 pt-6">
-      <header className="mx-auto flex max-w-md items-center justify-between">
-        <div>
+      <header className="mx-auto flex max-w-md items-center justify-between gap-3">
+        <div className="min-w-0">
           <p className="text-xs uppercase tracking-[0.22em] text-gold/70">Mesa</p>
-          <h1 className="font-display text-3xl text-gold-soft">{user?.name}</h1>
+          <h1 className="truncate font-display text-3xl text-gold-soft">{user?.name}</h1>
         </div>
-        <button onClick={logout} className="text-sm text-white/45">
-          Sair
-        </button>
+        <Button variant="ghost" className="min-h-10 shrink-0 px-3 py-2 text-xs" onClick={logout}>
+          Sair da conta
+        </Button>
       </header>
 
       <section className="mx-auto mt-6 max-w-md rounded-[28px] border border-white/10 bg-black/20 p-5">

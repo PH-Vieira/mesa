@@ -35,6 +35,7 @@ type AppCtx = {
   conn: ConnState;
   toasts: Toast[];
   bootstrapping: boolean;
+  actionBusy: boolean;
   login: (name: string, password: string, remember: boolean) => Promise<void>;
   register: (name: string, password: string, remember: boolean) => Promise<void>;
   logout: () => void;
@@ -57,7 +58,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [conn, setConn] = useState<ConnState>("idle");
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [bootstrapping, setBootstrapping] = useState(true);
+  const [actionBusy, setActionBusy] = useState(false);
   const toastId = useRef(1);
+  const busyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearBusy = useCallback(() => {
+    if (busyTimer.current) {
+      clearTimeout(busyTimer.current);
+      busyTimer.current = null;
+    }
+    setActionBusy(false);
+  }, []);
 
   const pushToast = useCallback((level: Toast["level"], message: string) => {
     const id = toastId.current++;
@@ -82,18 +93,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setNotifications((n) => [msg.notification, ...n.filter((x) => x.id !== msg.notification.id)]);
       }
       if (msg.type === "room") {
+        clearBusy();
         setRoom(msg.room);
         setScreen("room");
       }
       if (msg.type === "room_left") {
+        clearBusy();
         setRoom(null);
         setScreen("home");
       }
       if (msg.type === "hello" && msg.currentRoomId) {
         s.send({ type: "subscribe_room", roomId: msg.currentRoomId });
       }
-      if (msg.type === "toast") pushToast(msg.level, msg.message);
-      if (msg.type === "error") pushToast("error", msg.message);
+      if (msg.type === "toast") {
+        if (msg.level === "error") clearBusy();
+        pushToast(msg.level, msg.message);
+      }
+      if (msg.type === "error") {
+        clearBusy();
+        pushToast("error", msg.message);
+      }
     });
     const offState = s.onState(setConn);
     const onOnline = () => s.resumeOnline();
@@ -106,7 +125,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
     };
-  }, [pushToast]);
+  }, [pushToast, clearBusy]);
 
   useEffect(() => {
     const s = socket.current;
@@ -163,9 +182,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setScreen("auth");
   }, []);
 
-  const sendAction = useCallback((payload: RoomAction) => {
-    socket.current.send({ type: "room_action", payload });
-  }, []);
+  const sendAction = useCallback(
+    (payload: RoomAction) => {
+      if (actionBusy) return;
+      setActionBusy(true);
+      if (busyTimer.current) clearTimeout(busyTimer.current);
+      // Segurança: se o back não responder, libera o botão.
+      busyTimer.current = setTimeout(() => setActionBusy(false), 8000);
+      socket.current.send({ type: "room_action", payload });
+    },
+    [actionBusy],
+  );
 
   const value = useMemo<AppCtx>(
     () => ({
@@ -178,6 +205,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       conn,
       toasts,
       bootstrapping,
+      actionBusy,
       login,
       register,
       logout,
@@ -199,6 +227,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       conn,
       toasts,
       bootstrapping,
+      actionBusy,
       login,
       register,
       logout,
