@@ -551,9 +551,23 @@ function applyBet(room: RoomRow, userId: number, kind: string, amount?: number):
 
 export function handleRoomAction(userId: number, payload: RoomAction): string | null {
   const user = getUserById(userId);
-  if (!user?.current_room_id) return "Você não está em uma sala.";
+  if (!user?.current_room_id) {
+    // Front pode estar preso na UI da sala — sincroniza a saída.
+    if (payload.action === "leave") {
+      sendToUser(userId, { type: "room_left", roomId: "" });
+      return null;
+    }
+    return "Você não está em uma sala.";
+  }
   const room = getRoom(user.current_room_id);
-  if (!room) return "Sala não encontrada.";
+  if (!room) {
+    db.prepare("UPDATE users SET current_room_id = NULL WHERE id = ?").run(userId);
+    if (payload.action === "leave") {
+      sendToUser(userId, { type: "room_left", roomId: "" });
+      return null;
+    }
+    return "Sala não encontrada.";
+  }
   const me = getRoomPlayers(room.id).find((p) => p.user_id === userId);
 
   let err: string | null = null;

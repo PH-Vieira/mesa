@@ -8,7 +8,7 @@ import { Button, Field, Input, Sheet, StatusPill } from "./ui";
 import { TurnAlert } from "./turn-alert";
 
 export function RoomScreen() {
-  const { room, user, friends, sendAction, actionBusy } = useApp();
+  const { room, user, friends, sendAction, leaveRoom, actionBusy } = useApp();
   const [inviteOpen, setInviteOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
@@ -496,8 +496,8 @@ export function RoomScreen() {
             variant="danger"
             disabled={actionBusy}
             onClick={() => {
-              sendAction({ action: "leave" });
               setLeaveOpen(false);
+              leaveRoom();
             }}
           >
             {actionBusy ? "Saindo…" : "Sair mesmo"}

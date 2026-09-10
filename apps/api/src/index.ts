@@ -45,7 +45,29 @@ import {
 import { log } from "./log.js";
 
 const app = Fastify({ logger: false });
-await app.register(cors, { origin: config.corsOrigin.split(",").map((s) => s.trim()) });
+const corsOrigins = config.corsOrigin.split(",").map((s) => s.trim()).filter(Boolean);
+
+function isAllowedOrigin(origin: string) {
+  if (corsOrigins.includes("*")) return true;
+  if (corsOrigins.includes(origin)) return true;
+  if (
+    corsOrigins.includes("https://*.vercel.app") &&
+    /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+await app.register(cors, {
+  origin: (origin, cb) => {
+    if (!origin) {
+      cb(null, true);
+      return;
+    }
+    cb(null, isAllowedOrigin(origin));
+  },
+});
 await app.register(websocket);
 
 app.addHook("onResponse", (req, reply, done) => {
@@ -255,8 +277,9 @@ app.get("/ws", { websocket: true }, (socket, req) => {
       if (room && room.status !== "dead") {
         setClientRoom(client, room.id);
         send(socket, { type: "room", room: toRoomState(room, user.name) });
-      } else if (!room || room.status === "dead") {
+      } else {
         db.prepare("UPDATE users SET current_room_id = NULL WHERE id = ?").run(user.id);
+        send(socket, { type: "room_left", roomId: user.current_room_id });
       }
     }
 
@@ -275,9 +298,15 @@ app.get("/ws", { websocket: true }, (socket, req) => {
       if (msg.type === "subscribe_room") {
         const fresh = getUserById(user.id);
         if (fresh?.current_room_id === msg.roomId) {
-          setClientRoom(client, msg.roomId);
           const room = getRoom(msg.roomId);
-          if (room) send(socket, { type: "room", room: toRoomState(room, user.name) });
+          if (room && room.status !== "dead") {
+            setClientRoom(client, msg.roomId);
+            send(socket, { type: "room", room: toRoomState(room, user.name) });
+          } else {
+            db.prepare("UPDATE users SET current_room_id = NULL WHERE id = ?").run(user.id);
+            setClientRoom(client, null);
+            send(socket, { type: "room_left", roomId: msg.roomId });
+          }
         }
         return;
       }

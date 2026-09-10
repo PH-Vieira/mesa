@@ -40,6 +40,7 @@ type AppCtx = {
   register: (name: string, password: string, remember: boolean) => Promise<void>;
   logout: () => void;
   sendAction: (payload: RoomAction) => void;
+  leaveRoom: () => void;
   goHome: () => void;
   enterRoom: (room: RoomState) => void;
   dismissToast: (id: number) => void;
@@ -94,6 +95,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       if (msg.type === "room") {
         clearBusy();
+        // Sala morta = já saiu / encerrada — não prender o front na UI.
+        if (msg.room.status === "dead") {
+          setRoom(null);
+          setScreen("home");
+          return;
+        }
         setRoom(msg.room);
         setScreen("room");
       }
@@ -194,6 +201,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [actionBusy],
   );
 
+  /** Sai na hora na UI; o back confirma (ou sincroniza se já estava fora). */
+  const leaveRoom = useCallback(() => {
+    setRoom(null);
+    setScreen("home");
+    clearBusy();
+    setActionBusy(true);
+    if (busyTimer.current) clearTimeout(busyTimer.current);
+    busyTimer.current = setTimeout(() => setActionBusy(false), 8000);
+    socket.current.send({ type: "room_action", payload: { action: "leave" } });
+  }, [clearBusy]);
+
   const value = useMemo<AppCtx>(
     () => ({
       screen,
@@ -210,6 +228,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       register,
       logout,
       sendAction,
+      leaveRoom,
       goHome: () => setScreen("home"),
       enterRoom: (next) => {
         setRoom(next);
@@ -232,6 +251,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       register,
       logout,
       sendAction,
+      leaveRoom,
     ],
   );
 

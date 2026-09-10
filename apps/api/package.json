@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch --exclude ./data --exclude ./data/** src/index.ts",
+    "dev": "tsx watch --exclude ./data --exclude ./data/** --exclude **/*.db --exclude **/*.db-* --exclude **/*.db-*/* src/index.ts",
     "build": "tsc",
     "start": "tsx src/index.ts"
   },
